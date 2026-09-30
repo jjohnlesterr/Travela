@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Installed tooling (PixelCrew / Impeccable), not app code:
+    ".pixel-agents/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".impeccable/**",
   ]),
 ]);
 
