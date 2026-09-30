@@ -17,12 +17,12 @@ export default function AlternativeCard({ alternative: alt, selected }: Props) {
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-line px-4 py-3.5">
         <div className="min-w-0">
           <p className="truncate text-[13px] font-semibold text-ink-muted">{selected.name}</p>
-          <PressureBadge score={selected.score} showScore />
+          <PressureBadge score={selected.score} showScore compact />
         </div>
         <ArrowRight className="size-5 text-leaf" aria-label="compared with" />
         <div className="min-w-0 text-right">
           <p className="truncate text-[13px] font-semibold text-ink-muted">{d.name}</p>
-          <PressureBadge score={alt.score} showScore />
+          <PressureBadge score={alt.score} showScore compact />
         </div>
       </div>
 

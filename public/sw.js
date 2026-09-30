@@ -1,8 +1,9 @@
 // Travela service worker — small, hand-written (see docs/PLAN.md §12).
-// Navigations: network-first with offline fallback. Static assets: cache-first.
+// Navigations: network, with the /offline page as fallback. Static assets: cache-first.
+// Page HTML is never cached: every screen is behind sign-in and may hold personal trips.
 // Never caches API routes or third-party requests (Supabase, Gemini, etc.).
-const CACHE = "travela-v1";
-const PRECACHE = ["/", "/offline", "/images/travela-logo.png", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "travela-v2";
+const PRECACHE = ["/offline", "/images/travela-logo.png", "/images/destinations/hero.webp", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -23,15 +24,7 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match("/offline"))),
-    );
+    event.respondWith(fetch(req).catch(() => caches.match("/offline")));
     return;
   }
 

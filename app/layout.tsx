@@ -20,7 +20,14 @@ export const metadata: Metadata = {
     "Find where to go with a clear view of estimated tourism pressure, calmer alternatives and greener routes.",
   applicationName: "Travela",
   appleWebApp: { capable: true, title: "Travela", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
+  // Declaring `icons` replaces Next's automatic app/icon.png tag, so list the favicon explicitly.
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "64x64" },
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

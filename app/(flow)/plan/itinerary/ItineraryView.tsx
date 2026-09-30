@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Bookmark, BookmarkCheck, CalendarDays, Info, Leaf, Loader2, RefreshCw, SlidersHorizontal, Sparkles } from "lucide-react";
+import { AlertCircle, CalendarDays, Info, Leaf, Loader2, RefreshCw, Route, SlidersHorizontal, Sparkles } from "lucide-react";
+import DayTabs from "@/components/DayTabs";
 import ItineraryTimeline from "@/components/ItineraryTimeline";
 import PressureBadge from "@/components/PressureBadge";
-import { saveTrip } from "@/lib/actions";
+import SaveTripButton from "@/components/SaveTripButton";
 import type { Itinerary } from "@/lib/itinerary";
+import { planRoute, toSavedRoute } from "@/lib/route";
 import { getDraft, setDraft, type TripDraft } from "@/lib/tripDraft";
+import { useSaveTrip } from "@/lib/useSaveTrip";
 
 const LOADING_COPY = [
   "Finding local spots…",
@@ -34,9 +36,12 @@ async function requestItinerary(draft: TripDraft): Promise<Itinerary> {
     return json.itinerary as Itinerary;
   })();
   inFlight = { key, promise };
-  promise.finally(() => {
+  // Clear the slot on settle. Both handlers are given so this side chain never becomes an unhandled rejection;
+  // callers handle the error on `promise` itself.
+  const clear = () => {
     if (inFlight?.promise === promise) inFlight = null;
-  });
+  };
+  promise.then(clear, clear);
   return promise;
 }
 
@@ -50,15 +55,20 @@ export default function ItineraryView() {
 }
 
 function View() {
-  const router = useRouter();
-  const params = useSearchParams();
   const [draft, setDraftState] = useState<TripDraft | null>(() => getDraft());
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [activeDay, setActiveDay] = useState(1);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const autoSaveTried = useRef(false);
+
+  // Saving from here stores the default green route (starting from each day's first stop).
+  const current = draft?.itinerary ?? null;
+  const getRoute = useCallback(() => (current ? toSavedRoute(planRoute(current, null), "first-stop") : null), [current]);
+  const { save, saving, error: saveError, saved } = useSaveTrip({
+    draft,
+    onSaved: setDraftState,
+    returnPath: "/plan/itinerary",
+    getRoute,
+  });
 
   function commit(next: TripDraft) {
     setDraft(next);
@@ -86,36 +96,6 @@ function View() {
     };
     // `attempt` re-triggers after "Try again".
   }, [needsItinerary, draft, attempt]);
-
-  async function save() {
-    if (!draft?.itinerary || draft.savedTripId) return;
-    setSaving(true);
-    setSaveError(null);
-    const res = await saveTrip({
-      slug: draft.destination.slug,
-      days: draft.days,
-      interests: draft.interests,
-      itinerary: draft.itinerary,
-    });
-    setSaving(false);
-    if (res.ok) {
-      commit({ ...draft, savedTripId: res.id });
-    } else if (res.reason === "auth") {
-      router.push(`/login?next=${encodeURIComponent("/plan/itinerary?save=1")}`);
-    } else {
-      setSaveError(res.message);
-    }
-  }
-
-  // Back from login with ?save=1 → save once, then clean the URL.
-  const wantsAutoSave = params.get("save") === "1";
-  useEffect(() => {
-    if (!wantsAutoSave || autoSaveTried.current || !draft?.itinerary) return;
-    autoSaveTried.current = true;
-    router.replace("/plan/itinerary");
-    if (!draft.savedTripId) void Promise.resolve().then(save);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when the itinerary is available
-  }, [wantsAutoSave, draft?.itinerary]);
 
   if (!draft) return <NoDraft />;
 
@@ -156,28 +136,9 @@ function View() {
             </p>
           )}
 
-          {it.days.length > 1 && (
-            <div role="tablist" aria-label="Trip days" className="scrollbar-none -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 py-1">
-              {it.days.map((day) => {
-                const active = day.day === activeDay;
-                return (
-                  <button
-                    key={day.day}
-                    role="tab"
-                    type="button"
-                    aria-selected={active}
-                    aria-controls="day-panel"
-                    onClick={() => setActiveDay(day.day)}
-                    className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors ${
-                      active ? "bg-navy text-white" : "bg-surface text-navy ring-1 ring-line hover:bg-navy-soft"
-                    }`}
-                  >
-                    Day {day.day}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div className="mt-5">
+            <DayTabs days={it.days.map((x) => x.day)} active={activeDay} onChange={setActiveDay} panelId="day-panel" />
+          </div>
 
           {it.days
             .filter((day) => day.day === activeDay)
@@ -230,39 +191,24 @@ function View() {
             </Link>
           </div>
 
-          <SaveBar saved={Boolean(draft.savedTripId)} saving={saving} error={saveError} onSave={save} />
+          <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[480px] bg-gradient-to-t from-sand via-sand/95 to-sand/0 px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+            {saveError && (
+              <p role="alert" className="mb-2 rounded-2xl bg-pressure-high-soft px-4 py-2.5 text-[13px] text-pressure-high-ink">
+                {saveError}
+              </p>
+            )}
+            <div className="grid grid-cols-[auto_1fr] gap-2">
+              <SaveTripButton compact saved={saved} saving={saving} onSave={save} />
+              <Link
+                href="/plan/route"
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-brand-gradient font-semibold text-white shadow-float transition-transform active:scale-[0.98]"
+              >
+                <Route className="size-5" aria-hidden />
+                See green route
+              </Link>
+            </div>
+          </div>
         </>
-      )}
-    </div>
-  );
-}
-
-function SaveBar({ saved, saving, error, onSave }: { saved: boolean; saving: boolean; error: string | null; onSave: () => void }) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[480px] bg-gradient-to-t from-sand via-sand/95 to-sand/0 px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+16px)]">
-      {error && (
-        <p role="alert" className="mb-2 rounded-2xl bg-pressure-high-soft px-4 py-2.5 text-[13px] text-pressure-high-ink">
-          {error}
-        </p>
-      )}
-      {saved ? (
-        <Link
-          href="/trips"
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-leaf-deep font-semibold text-white shadow-float"
-        >
-          <BookmarkCheck className="size-5" aria-hidden />
-          Saved · View my trips
-        </Link>
-      ) : (
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand-gradient font-semibold text-white shadow-float transition-transform active:scale-[0.98] disabled:opacity-70"
-        >
-          {saving ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Bookmark className="size-5" aria-hidden />}
-          {saving ? "Saving…" : "Save trip"}
-        </button>
       )}
     </div>
   );
