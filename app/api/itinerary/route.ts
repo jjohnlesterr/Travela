@@ -1,7 +1,7 @@
 import { getAnalysis } from "@/lib/analysis";
-import { INTERESTS, type Interest } from "@/lib/destinations";
 import { buildPool, generateItinerary, ItineraryError } from "@/lib/gemini";
-import { MAX_DAYS } from "@/lib/itinerary";
+import { isTripInterest } from "@/lib/interests";
+import { isValidDays } from "@/lib/itinerary";
 import { createClient } from "@/lib/supabase/server";
 
 // Gemini + (rarely) a first-time Apify fetch can take a while.
@@ -37,10 +37,8 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { slug?: unknown; days?: unknown; interests?: unknown } | null;
   const slug = typeof body?.slug === "string" ? body.slug.trim().slice(0, 120) : "";
   const days = Number(body?.days);
-  const interests = Array.isArray(body?.interests)
-    ? (body.interests.filter((i) => INTERESTS.includes(i as Interest)) as Interest[])
-    : [];
-  if (!slug || !Number.isInteger(days) || days < 1 || days > MAX_DAYS || interests.length === 0) {
+  const interests = Array.isArray(body?.interests) ? [...new Set(body.interests.filter(isTripInterest))] : [];
+  if (!slug || !isValidDays(days) || interests.length === 0) {
     return fail(400, "Please choose a destination, trip length and at least one interest.");
   }
 

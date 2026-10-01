@@ -92,3 +92,45 @@ body {
     animation: none;
   }
 }
+
+/* Leaflet route map (components/LeafletRouteMap.tsx). Scoped with .travela-map so it outranks leaflet.css,
+   which loads later with the map chunk. */
+.travela-map.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--color-navy-soft);
+}
+.travela-map .leaflet-bar {
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.travela-map .leaflet-bar a,
+.travela-map.leaflet-touch .leaflet-bar a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 20px;
+  color: var(--color-navy);
+  border-color: var(--color-line);
+}
+.travela-map .leaflet-bar a:hover {
+  background: var(--color-navy-soft);
+}
+.travela-map .leaflet-tooltip {
+  border: 0;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-navy);
+  box-shadow: var(--shadow-card);
+}
+.travela-map .leaflet-control-attribution {
+  border-top-left-radius: 8px;
+  font-size: 10px;
+  color: var(--color-ink-muted);
+}
+.travela-map .leaflet-control-attribution a {
+  color: var(--color-ocean);
+}

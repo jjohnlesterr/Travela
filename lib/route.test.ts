@@ -63,5 +63,26 @@ test("maps link: origin/destination/waypoints and 8-waypoint cap", () => {
   const u = new URL(r.url);
   assert.equal(u.searchParams.get("waypoints")!.split("|").length, 8);
   assert.equal(r.truncated, true);
-  assert.equal(mapsDirectionsUrl([pts[0]], null), null);
+  assert.equal(mapsDirectionsUrl([], null), null);
+  assert.equal(mapsDirectionsUrl([], pts[0]), null);
+});
+
+test("maps link: stop order is preserved and current location is the origin", () => {
+  const a = { lat: 16.41, lng: 120.61 };
+  const b = { lat: 16.42, lng: 120.62 };
+  const c = { lat: 16.43, lng: 120.63 };
+  const me = { lat: 16.4, lng: 120.6 };
+  const u = new URL(mapsDirectionsUrl([a, b, c], me)!.url);
+  assert.equal(u.origin + u.pathname, "https://www.google.com/maps/dir/");
+  assert.equal(u.searchParams.get("api"), "1");
+  assert.equal(u.searchParams.get("origin"), "16.400000,120.600000");
+  assert.equal(u.searchParams.get("waypoints"), "16.410000,120.610000|16.420000,120.620000");
+  assert.equal(u.searchParams.get("destination"), "16.430000,120.630000");
+});
+
+test("maps link: a single stop still gets directions (Maps chooses the start)", () => {
+  const u = new URL(mapsDirectionsUrl([{ lat: 11.96, lng: 121.92 }], null)!.url);
+  assert.equal(u.searchParams.get("destination"), "11.960000,121.920000");
+  assert.equal(u.searchParams.get("origin"), null);
+  assert.equal(u.searchParams.get("waypoints"), null);
 });

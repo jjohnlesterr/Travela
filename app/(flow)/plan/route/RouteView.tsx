@@ -54,6 +54,12 @@ function View() {
   }
 
   function chooseMyLocation() {
+    // Already located (and checked as nearby) this visit: switch back without asking the browser again.
+    if (here) {
+      setMode("current-location");
+      setNotice(null);
+      return;
+    }
     if (!("geolocation" in navigator)) {
       setNotice("Location isn't available on this device — starting from your first stop.");
       return;
@@ -168,7 +174,7 @@ function View() {
                 <RouteMap
                   stops={day.stops}
                   origin={origin}
-                  label={`Route sketch for day ${day.day}: ${day.stops.map((s) => s.name).join(", then ")}`}
+                  label={`Map of day ${day.day} stops in order: ${day.stops.map((s) => s.name).join(", then ")}`}
                 />
               ) : (
                 <p className="rounded-3xl bg-surface p-4 text-[14px] text-ink-muted shadow-card">No mapped stops on this day.</p>

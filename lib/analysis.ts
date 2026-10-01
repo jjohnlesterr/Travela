@@ -11,6 +11,7 @@ import { pickAlternative, SHOW_ALTERNATIVE_AT, type Alternative } from "./altern
 import { isFresh, readCacheRow, writeCacheRow, apifyRunsLast24h, type CacheRow } from "./cache";
 import { DESTINATIONS, getDestination, pressureLevel, type Destination, type Interest } from "./destinations";
 import { getPlace, idFromSlug, placeSlug, searchPlaces, type GeoPlace } from "./geocode";
+import { deriveInterests, type TripInterest } from "./interests";
 import { interestsFromPlaces, type Place } from "./places";
 import {
   computePressure,
@@ -327,4 +328,13 @@ export async function getDestinationSummary(slug: string): Promise<DestinationSu
   const geo = await getPlace(id);
   if (!geo) return null;
   return { slug, name: geo.name, region: geo.region, countryCode: geo.countryCode, image: null, interests: [], pressure: null };
+}
+
+/**
+ * Trip interests offered on the plan form, derived from the destination's cached places
+ * (plus curated catalog interests). Cache-only: never calls Apify. Falls back to universal interests.
+ */
+export async function getTripInterests(slug: string): Promise<TripInterest[]> {
+  const row = await readCacheRow(slug).catch(() => null);
+  return deriveInterests(row?.places ?? [], getDestination(slug)?.interests ?? []);
 }

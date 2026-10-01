@@ -6,7 +6,7 @@
  * counts, Maps links) is joined back from our own data after validation. Gemini never sees or
  * produces pressure scores.
  */
-import type { Interest } from "./destinations";
+import { FOOD_INTERESTS, placeMatches, type TripInterest } from "./interests";
 import type { Itinerary, ItineraryDay, ItineraryStop, StopKind } from "./itinerary";
 import { haversineKm } from "./pressure";
 import type { Place } from "./places";
@@ -34,33 +34,27 @@ export class ItineraryError extends Error {
 // ---------------------------------------------------------------------------------------------
 // Place pool
 
-const INTEREST_MATCH: Record<Interest, RegExp> = {
-  Beaches: /beach|island|cove|sandbar|lagoon|reef|snorkel|dive|diving|bay|shore|marine/i,
-  Nature: /park|falls|waterfall|mountain|hill|hiking|trail|nature|lake|cave|river|spring|garden|viewpoint|forest|terrace|volcano|lagoon|sanctuary/i,
-  Food: /restaurant|caf[eé]|market|food|bistro|bakery|grill/i,
-  Culture: /museum|church|historic|heritage|monument|cultural|landmark|shrine|temple|art|market|village|cathedral/i,
-  Adventure: /tour|dive|diving|surf|zip|adventure|kayak|trek|climb|boat|snorkel|atv|rental|canyon/i,
-};
-
 export type PoolItem = Place & { ref: string };
 
 /**
  * Up to 40 places: attractions ranked by interest match then review activity, plus a set of
- * well-reviewed local eateries. Lodging is left out — itineraries are about the days.
+ * well-reviewed local eateries (cafés / bars first when those were picked). Lodging is left out —
+ * itineraries are about the days.
  */
-export function buildPool(places: Place[], interests: Interest[]): PoolItem[] {
-  const matches = (p: Place) =>
-    interests.filter((i) => i !== "Food" && INTEREST_MATCH[i].test(`${p.category ?? ""} ${p.name}`)).length;
+export function buildPool(places: Place[], interests: TripInterest[]): PoolItem[] {
+  const ranking = interests.filter((i) => i !== "Food"); // "Food" matches every eatery equally
+  const matches = (p: Place) => ranking.filter((i) => placeMatches(p, i)).length;
   const weight = (p: Place) => Math.log10((p.reviews ?? 0) + 1) * (p.rating ?? 3.5);
+  const byInterest = (a: Place, b: Place) => matches(b) - matches(a) || weight(b) - weight(a);
 
   const attractions = places
     .filter((p) => p.kind === "attraction")
-    .sort((a, b) => matches(b) - matches(a) || weight(b) - weight(a))
+    .sort(byInterest)
     .slice(0, 28);
   const food = places
     .filter((p) => p.kind === "food")
-    .sort((a, b) => weight(b) - weight(a))
-    .slice(0, interests.includes("Food") ? 12 : 8);
+    .sort(byInterest)
+    .slice(0, interests.some((i) => FOOD_INTERESTS.includes(i)) ? 12 : 8);
 
   return [...attractions, ...food].slice(0, MAX_POOL).map((p, i) => ({ ...p, ref: `p${i + 1}` }));
 }
@@ -120,7 +114,7 @@ const SCHEMA = {
 type Input = {
   destination: { name: string; region: string | null; country: string | null };
   days: number;
-  interests: Interest[];
+  interests: TripInterest[];
   pool: PoolItem[];
   /** Context only — lets Gemini lean toward quieter choices. Never echoed. */
   pressureLevel: string | null;

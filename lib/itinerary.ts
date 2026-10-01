@@ -1,5 +1,6 @@
 /** Itinerary types shared by the Gemini route (server) and the itinerary screen (client). */
-import type { Interest, PressureLevel } from "./destinations";
+import type { PressureLevel } from "./destinations";
+import type { TripInterest } from "./interests";
 
 export type StopKind = "lodging" | "attraction" | "food" | "activity";
 
@@ -39,7 +40,13 @@ export type TripDestination = {
   level: PressureLevel | null;
 };
 
+/** Quick presets on the plan form; any whole number from MIN_DAYS to MAX_DAYS is allowed via "Custom". */
 export const DAY_OPTIONS = [1, 3, 5, 7] as const;
-export const MAX_DAYS = 7;
+export const MIN_DAYS = 1;
+export const MAX_DAYS = 14;
 
-export type ItineraryRequest = { slug: string; days: number; interests: Interest[] };
+export function isValidDays(n: unknown): n is number {
+  return typeof n === "number" && Number.isInteger(n) && n >= MIN_DAYS && n <= MAX_DAYS;
+}
+
+export type ItineraryRequest = { slug: string; days: number; interests: TripInterest[] };

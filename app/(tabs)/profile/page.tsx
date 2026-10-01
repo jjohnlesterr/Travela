@@ -65,7 +65,7 @@ export default async function ProfilePage() {
           <Heart className="size-5 text-leaf" aria-hidden />
           Travel interests
         </h2>
-        <p className="mb-3 text-sm text-ink-muted">You&apos;ll choose these for each trip when planning.</p>
+        <p className="mb-3 text-sm text-ink-muted">When you plan, we suggest interests that fit each destination — beaches, cafés, hiking and more.</p>
         <div className="flex flex-wrap gap-2">
           {INTERESTS.map((i) => (
             <span key={i} className="flex h-9 items-center rounded-full bg-surface px-4 text-sm font-medium text-navy ring-1 ring-line">

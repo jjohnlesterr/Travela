@@ -2,13 +2,13 @@
  * The in-progress trip, kept in sessionStorage so preferences and the generated itinerary survive
  * refreshes, Gemini failures and the login round-trip. Client-only.
  */
-import type { Interest } from "./destinations";
+import type { TripInterest } from "./interests";
 import type { Itinerary, TripDestination } from "./itinerary";
 
 export type TripDraft = {
   destination: TripDestination;
   days: number;
-  interests: Interest[];
+  interests: TripInterest[];
   itinerary: Itinerary | null;
   /** Set once saved, so the same draft is never inserted twice. */
   savedTripId: string | null;

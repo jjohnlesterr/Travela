@@ -4,7 +4,7 @@ import { CalendarDays, MapPin, Route, Sparkles, X } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import PressureBadge from "@/components/PressureBadge";
 import SearchBar from "@/components/SearchBar";
-import { getDestinationSummary } from "@/lib/analysis";
+import { getDestinationSummary, getTripInterests } from "@/lib/analysis";
 import { DESTINATIONS } from "@/lib/destinations";
 import { getCatalogScores } from "@/lib/scores";
 import PlanForm from "./PlanForm";
@@ -21,7 +21,7 @@ const STEPS = [
 export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   const { d } = await searchParams;
   const selected = typeof d === "string" ? await getDestinationSummary(d) : null;
-  const scores = await getCatalogScores();
+  const [scores, interests] = await Promise.all([getCatalogScores(), selected ? getTripInterests(selected.slug) : []]);
   const calmer = DESTINATIONS.filter((x) => scores[x.slug].score < 40).slice(0, 4);
 
   return (
@@ -95,7 +95,7 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
               score: selected.pressure?.score ?? null,
               level: selected.pressure?.level ?? null,
             }}
-            suggestedInterests={selected.interests}
+            interests={interests}
           />
         </section>
       ) : (

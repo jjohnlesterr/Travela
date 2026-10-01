@@ -2,14 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { getDestinationSummary } from "./analysis";
-import { INTERESTS, type Interest } from "./destinations";
-import { MAX_DAYS, type Itinerary } from "./itinerary";
+import { isTripInterest } from "./interests";
+import { isValidDays, type Itinerary } from "./itinerary";
 import type { SavedRoute } from "./route";
 import { createClient } from "./supabase/server";
 
 export type SaveTripResult = { ok: true; id: string } | { ok: false; reason: "auth" | "invalid" | "error"; message: string };
 
-const MAX_ITINERARY_BYTES = 60_000;
+/** Roomy enough for a 14-day itinerary. */
+const MAX_ITINERARY_BYTES = 120_000;
 
 function validItinerary(it: unknown, days: number): it is Itinerary {
   const i = it as Itinerary;
@@ -66,10 +67,8 @@ export async function saveTrip(input: {
   if (!userId) return { ok: false, reason: "auth", message: "Please sign in to save your trip." };
 
   const days = Number(input.days);
-  const interests = (Array.isArray(input.interests) ? input.interests : []).filter((i): i is Interest =>
-    INTERESTS.includes(i as Interest),
-  );
-  if (!Number.isInteger(days) || days < 1 || days > MAX_DAYS || !validItinerary(input.itinerary, days)) {
+  const interests = [...new Set((Array.isArray(input.interests) ? input.interests : []).filter(isTripInterest))];
+  if (!isValidDays(days) || !validItinerary(input.itinerary, days)) {
     return { ok: false, reason: "invalid", message: "This trip couldn't be saved. Try generating it again." };
   }
 

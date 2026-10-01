@@ -1,61 +1,73 @@
-import type { LatLng } from "@/lib/route";
+"use client";
 
-const W = 320;
-const H = 200;
-const PAD = 26;
+import { Component, useMemo, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { MapPinOff } from "lucide-react";
+import type { LatLng } from "@/lib/route";
+import type { MapStop } from "./LeafletRouteMap";
+import RouteSketch from "./RouteSketch";
+
+// Leaflet touches `window` on import, so the map is client-only and its code (and CSS) loads only where a map renders.
+const LeafletRouteMap = dynamic(() => import("./LeafletRouteMap"), {
+  ssr: false,
+  loading: () => <div className="h-[240px] w-full animate-pulse bg-navy-soft" aria-hidden />,
+});
+
+type Stop = { lat: number | null; lng: number | null; name: string };
+type Props = { stops: Stop[]; origin: LatLng | null; label: string };
+
+const validCoord = (lat: unknown, lng: unknown): boolean =>
+  typeof lat === "number" &&
+  typeof lng === "number" &&
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  Math.abs(lat) <= 90 &&
+  Math.abs(lng) <= 180 &&
+  !(lat === 0 && lng === 0);
+
+/** If the map chunk fails to load or Leaflet throws, show the lightweight SVG sketch instead. */
+class MapBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 /**
- * Lightweight SVG route sketch: stops projected onto a box (equirectangular, longitude scaled by
- * cos(latitude)), numbered in visiting order. Not a map — real navigation opens in Google Maps.
+ * Green Route map preview: numbered stops in visiting order on an OpenStreetMap base map.
+ * Stops without valid coordinates are left off the map (numbers still match the list) and never invented.
  */
-export default function RouteMap({ stops, origin, label }: { stops: (LatLng & { name: string })[]; origin: LatLng | null; label: string }) {
-  const all = origin ? [origin, ...stops] : stops;
-  if (!stops.length) return null;
+export default function RouteMap({ stops, origin, label }: Props) {
+  // Stable identity per day/origin so the map only refits when the route actually changes.
+  const key = JSON.stringify([stops.map((s) => [s.lat, s.lng, s.name]), origin]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mapped = useMemo<MapStop[]>(() => stops.flatMap((s, i) => (validCoord(s.lat, s.lng) ? [{ lat: s.lat!, lng: s.lng!, name: s.name, n: i + 1 }] : [])), [key]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const from = useMemo(() => (origin && validCoord(origin.lat, origin.lng) ? origin : null), [key]);
 
-  const k = Math.cos((all.reduce((s, p) => s + p.lat, 0) / all.length) * (Math.PI / 180));
-  const xs = all.map((p) => p.lng * k);
-  const ys = all.map((p) => p.lat);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const span = Math.max(maxX - minX, maxY - minY, 1e-4);
-  const scale = Math.min((W - PAD * 2) / Math.max(maxX - minX, span * 0.2), (H - PAD * 2) / Math.max(maxY - minY, span * 0.2));
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-  const project = (p: LatLng) => ({ x: W / 2 + (p.lng * k - cx) * scale, y: H / 2 - (p.lat - cy) * scale });
-
-  const pts = stops.map(project);
-  const o = origin ? project(origin) : null;
-  const line = [...(o ? [o] : []), ...pts].map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  if (!mapped.length) {
+    return (
+      <p className="flex items-center gap-2 rounded-3xl bg-surface p-4 text-[14px] text-ink-muted shadow-card">
+        <MapPinOff className="size-4 shrink-0" aria-hidden />
+        No exact locations to show on the map for this day.
+      </p>
+    );
+  }
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-3xl bg-sky/10" role="img" aria-label={label}>
-      <defs>
-        <linearGradient id="route-line" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="var(--color-ocean)" />
-          <stop offset="1" stopColor="var(--color-leaf)" />
-        </linearGradient>
-        <pattern id="route-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M20 0H0V20" fill="none" stroke="var(--color-line)" strokeWidth="0.6" />
-        </pattern>
-      </defs>
-      <rect width={W} height={H} fill="url(#route-grid)" opacity="0.7" />
-      <polyline points={line} fill="none" stroke="url(#route-line)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      {o && (
-        <g>
-          <circle cx={o.x} cy={o.y} r="9" fill="var(--color-surface)" stroke="var(--color-ocean)" strokeWidth="3" />
-          <circle cx={o.x} cy={o.y} r="3.5" fill="var(--color-ocean)" />
-        </g>
-      )}
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r="11" fill={i === 0 && !o ? "var(--color-leaf-deep)" : "var(--color-navy)"} stroke="white" strokeWidth="2.5" />
-          <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize="11" fontWeight="700" fill="white">
-            {i + 1}
-          </text>
-        </g>
-      ))}
-    </svg>
+    <figure>
+      <div className="overflow-hidden rounded-3xl shadow-card ring-1 ring-line">
+        <MapBoundary fallback={<RouteSketch stops={mapped} origin={from} label={label} />}>
+          <LeafletRouteMap stops={mapped} origin={from} label={label} />
+        </MapBoundary>
+      </div>
+      <figcaption className="mt-1.5 px-1 text-[12px] leading-snug text-ink-muted">
+        Dotted line shows the visiting order, not exact roads.
+        {mapped.length < stops.length && " Stops without an exact location aren't shown."}
+      </figcaption>
+    </figure>
   );
 }

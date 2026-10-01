@@ -169,10 +169,17 @@ export function stopsInSavedOrder(itinerary: Itinerary, route: SavedRoute | null
 
 const fmt = (p: LatLng) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
 
-/** Google Maps directions deep link (opens the Maps app on phones). Truncates to 8 waypoints. */
+/**
+ * Google Maps directions deep link (opens the Maps app on phones). Truncates to 8 waypoints.
+ * A single stop with no origin links directions to it from wherever the traveler is (Maps picks the start).
+ */
 export function mapsDirectionsUrl(stops: LatLng[], origin: LatLng | null): { url: string; truncated: boolean } | null {
   const points = origin ? [origin, ...stops] : stops;
-  if (points.length < 2) return null;
+  if (!stops.length) return null;
+  if (points.length === 1) {
+    const params = new URLSearchParams({ api: "1", destination: fmt(points[0]), travelmode: "driving" });
+    return { url: `https://www.google.com/maps/dir/?${params.toString()}`, truncated: false };
+  }
   const first = points[0];
   const last = points[points.length - 1];
   const middle = points.slice(1, -1);

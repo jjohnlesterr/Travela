@@ -9,7 +9,7 @@ web
 Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS v4, Supabase, Gemini API, Apify Google Maps Scraper, Open-Meteo. Mobile-first installable PWA; later wrapped as an Android APK with Capacitor.
 
 ## Users
-Travelers in the Philippines choosing where to go and how to plan a short trip (1–7 days), on their phones. Hackathon judges evaluating the demo on a phone.
+Travelers in the Philippines choosing where to go and how to plan a short trip (1–14 days), on their phones. Hackathon judges evaluating the demo on a phone.
 
 ## Product Purpose
 Help travelers understand the **estimated tourism pressure** of a destination, discover similar lower-pressure alternatives, and plan a personalized itinerary with a greener, optimized route.
